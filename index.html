@@ -842,6 +842,10 @@ $('types').addEventListener('click',e=>{const b=e.target.closest('.opt');if(!b)r
   [...$('types').children].forEach(x=>x.classList.toggle('on',x===b));update()});
 document.querySelectorAll('[data-pkg]').forEach(a=>a.addEventListener('click',()=>{$('pkg').value=a.dataset.pkg}));
 
+function mailtoFor(d){
+  const body=Object.entries({상담:d.type,일시:`${d.date} ${d.time} (${d.duration}분)`,이름:d.name,회사:d.company,이메일:d.email,연락처:d.phone,플랜:d.plan,예산:d.budget,일정:d.timeline,내용:d.message}).map(([k,v])=>`${k}: ${v||'-'}`).join('\n');
+  return `mailto:${STUDIO_EMAIL}?subject=${encodeURIComponent('[Gukhwa 상담 예약] '+d.name+' · '+d.date+' '+d.time)}&body=${encodeURIComponent(body)}`;
+}
 const fmt=d=>`${d.getMonth()+1}월 ${d.getDate()}일 (${'일월화수목금토'[d.getDay()]})`;
 function valid(){if(S.step===1)return!!S.type;if(S.step===2)return!!(S.date&&S.time);return true}
 function update(){
@@ -874,20 +878,23 @@ $('fwd').onclick=async()=>{
       '관심 플랜':data.plan, '예산':data.budget, '희망 공개 시점':data.timeline, '프로젝트 소개':data.message||'-',
       '개인정보 동의':'동의함', '접수 시각':new Date().toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})
     };
+    let msg='';
     try{
-      const r=await fetch(BOOKING_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload)});
+      const ac=new AbortController(), to=setTimeout(()=>ac.abort(),15000);
+      const r=await fetch(BOOKING_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload),signal:ac.signal});
+      clearTimeout(to);
       const j=await r.json().catch(()=>({}));
       if(r.ok&&String(j.success)!=='false')sent=true;
-      else if(/activat/i.test(j.message||''))$('err').textContent='예약 폼 활성화 대기 중이에요. 스튜디오 메일함에서 활성화 후 다시 시도해주세요.';
-      else $('err').textContent=(j.errors&&j.errors.map(x=>x.message).join(' '))||j.message||'전송에 실패했어요. 잠시 후 다시 시도해주세요.';
-    }catch(e){$('err').textContent='네트워크 오류로 전송하지 못했어요. 연결을 확인 후 다시 시도해주세요.'}
-    if(!sent){$('fwd').disabled=false;$('fwd').textContent='예약 확정하기';return}
+      else if(/activat/i.test(j.message||''))msg='예약 폼 활성화 대기 중이에요.';
+      else msg=(j.errors&&j.errors.map(x=>x.message).join(' '))||'예약 서버가 잠시 응답하지 않아요.';
+    }catch(e){msg='예약 서버에 연결하지 못했어요.'}
+    if(!sent){
+      // 접수 서버 장애 시에도 예약이 유실되지 않도록 메일 전송 대안 제공
+      $('err').innerHTML=`${msg} <a href="${mailtoFor(data)}" style="color:var(--gold);text-decoration:underline;font-weight:500">메일로 바로 예약 요청 보내기 →</a> 또는 잠시 후 다시 시도해주세요.`;
+      $('fwd').disabled=false;$('fwd').textContent='다시 시도';return}
   }
   try{const all=mine();all.push(data);localStorage.setItem('gukhwa_bookings',JSON.stringify(all))}catch(e){}
-  if(!sent){
-    const body=Object.entries({상담:data.type,일시:`${data.date} ${data.time} (${data.duration}분)`,이름:nm,회사:data.company,이메일:em,연락처:data.phone,플랜:data.plan,예산:data.budget,일정:data.timeline,내용:data.message}).map(([k,v])=>`${k}: ${v||'-'}`).join('\n');
-    window._mailto=`mailto:${STUDIO_EMAIL}?subject=${encodeURIComponent('[Gukhwa 상담 예약] '+nm+' · '+data.date+' '+data.time)}&body=${encodeURIComponent(body)}`;
-  }
+  if(!sent) window._mailto=mailtoFor(data);
   window._bk=data;
   $('ticket').innerHTML=[['상담',data.type],['일시',`${fmt(S.date)} ${S.time}`],['소요',data.duration+'분'],['이름',nm],['장소',data.type.includes('방문')?'일산 Sweet99 1층':'화상 (링크 메일 발송)']].map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join('')
     +(sent?'':`<div><span>요청서</span><a href="${window._mailto}" style="color:var(--gold)">메일로 전송하기 →</a></div>`);
