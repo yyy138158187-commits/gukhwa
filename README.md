@@ -11,7 +11,8 @@
 
 ## Stack
 정적 HTML 한 파일 · GSAP 3.12 + ScrollTrigger · Lenis 1.1 (CDN). 빌드 없음.
-배포: Cloudflare Pages (GitHub 연동, Build command 없음, Output directory `/`).
+배포: GitHub Pages (main 브랜치 루트, push 시 자동 배포) — https://yyy138158187-commits.github.io/gukhwa/
+Cloudflare Pages로 옮길 때: GitHub 연동, Build command 없음, Output directory `/` (`_headers` 적용됨).
 
 ## 예약 설정
 `index.html`의 `FORMSPREE_ID` 또는 `BOOKING_EMAIL` 값으로 접수처를 바꿉니다.
